@@ -1,5 +1,6 @@
-import gmail, time, smtplib
+import gmail, time, smtplib, re
 from secrets import gmail_username, gmail_password, gmail_email
+from datetime import timedelta, datetime, date
 
 def get_users(g):
     emails = g.inbox().mail(prefetch=True)
@@ -7,8 +8,6 @@ def get_users(g):
     users = set()
 
     for email in emails:
-        email.fetch()
-
         user = email.fr
 
         # remove noreply addresses
@@ -26,8 +25,52 @@ def get_mail_message(g, user):
     message = 'Subject: %s\n\n%s' % (subj, msg)
     return message
 
+def parse_email(user):
+    user_email = user
+    m = re.search('.+<(.+)>', user)
+
+    if m:
+        user_email = m.group(1)
+    return user_email
+
 def pick_old_message(g, user):
-    pass
+    TIME_PERIODS = [
+        ('year' , 365),
+        ('month', 30),
+        ('week',  7),
+        ('day',   1),
+    ]
+
+    TIME_PERIODS = [
+        ('year' , 1),
+        ('month', 0.75),
+        ('week',  0.5),
+        ('day',   0.25),
+    ]
+
+    TIME_WINDOW = timedelta(days=1)
+    TIME_WINDOW = timedelta(hours=1)
+
+    for period, num_days in TIME_PERIODS:
+        # check to see if there's an email
+        # return that messag
+
+        before = date.today() - timedelta(num_days)
+        before = datetime.now() - timedelta(num_days)
+        after  = before + TIME_WINDOW
+
+        print "Checking for message %s between %s and %s" % (period, before, after)
+
+
+        user_email = parse_email(user)
+        result = g.inbox().mail(sender=user_email, before=before, after=after, prefetch=True)
+
+        if result:
+            body = 'Reply to this email with your entry!\n A %s ago, you wrote...\n %s' % (period, result[0].body)
+            return body
+
+
+    return None
 
 
 def send_message(user, message):
@@ -46,6 +89,8 @@ if __name__ == '__main__':
 
     for user in users:
         message = get_mail_message(g, user)
-        send_message(user, message)
 
-    print users
+        print message
+        # send_message(user, message)
+
+    # print users
