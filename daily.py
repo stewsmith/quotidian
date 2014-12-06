@@ -3,6 +3,9 @@ from secrets import gmail_username, gmail_password, gmail_email
 from datetime import timedelta, datetime, date
 from email_remover import unquote
 import sys
+import random
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 SEND_EMAIL_ALWAYS = False
 
@@ -43,10 +46,23 @@ def get_users(g):
 def get_mail_message(g, user):
     msg = pick_old_message(g, user)
     day = time.strftime("%A %b %d")
+    img = random.choice(tumblr_gifs)
     subj = 'It\'s ' + day + ' - How did your day go?'
 
-    message = 'Subject: %s\n\n%s' % (subj, msg)
-    return message
+    message = MIMEMultipart('alternative')
+    message['Subject'] = subj
+    message['From'] = gmail_email
+    message['To'] = user
+
+    part1 = MIMEText(msg, 'plain')
+    msg += '\n<img src="%s" style="width: 400px"/>' % (img)
+    msg = msg.replace('\n', '<br>')
+    part2 = MIMEText(msg, 'html')
+
+    message.attach(part1)
+    message.attach(part2)
+
+    return message.as_string()
 
 def parse_email(user):
     user_email = user
