@@ -1,6 +1,10 @@
 import gmail, time, smtplib, re
 from secrets import gmail_username, gmail_password, gmail_email
 from datetime import timedelta, datetime, date
+from email_remover import unquote
+import sys
+
+SEND_EMAIL_ALWAYS = False
 
 def get_users(g):
     emails = g.inbox().mail(prefetch=True)
@@ -51,29 +55,32 @@ def pick_old_message(g, user):
     TIME_WINDOW = timedelta(days=1)
     TIME_WINDOW = timedelta(hours=1)
 
-    for period, num_days in TIME_PERIODS:
+    for period, num_days in reversed(TIME_PERIODS):
         # check to see if there's an email
         # return that messag
 
-        before = date.today() - timedelta(num_days)
-        before = datetime.now() - timedelta(num_days)
-        after  = before + TIME_WINDOW
+        after = date.today() - timedelta(num_days)
+        after = datetime.now() - timedelta(num_days)
+        before  = after + TIME_WINDOW
 
         print "Checking for message %s between %s and %s" % (period, before, after)
-
 
         user_email = parse_email(user)
         result = g.inbox().mail(sender=user_email, before=before, after=after, prefetch=True)
 
         if result:
-            body = 'Reply to this email with your entry!\n A %s ago, you wrote...\n %s' % (period, result[0].body)
+            old_messages = ""
+            for item in result:
+                old_messages += unquote(item.body).strip() + "\n\n"
+
+            body = 'Reply to this email with your entry!\nA %s ago, you wrote...\n\n%s' % (period, old_messages)
             return body
 
 
     return None
 
-
 def send_message(user, message):
+    print "Sending a message to %s" % (user)
     from_address = gmail_email
     to_address = user
 
@@ -84,6 +91,10 @@ def send_message(user, message):
     server.quit()
 
 if __name__ == '__main__':
+    print sys.argv
+    if len(sys.argv) > 1:
+        SEND_EMAIL_ALWAYS = (sys.argv[1] == 'demo')
+
     g = gmail.login(gmail_username, gmail_password)
     users = get_users(g)
 
@@ -91,6 +102,15 @@ if __name__ == '__main__':
         message = get_mail_message(g, user)
 
         print message
-        # send_message(user, message)
 
-    # print users
+        if SEND_EMAIL_ALWAYS:
+            send_message(user, message)
+        else:
+            # check if message is sent today.
+            today_after  = date.today()
+            today_before = today_after + timedelta(days=1)
+
+            result = g.sent_mail().mail(to=parse_email(user), before=today_before, after=today_after, prefetch=True)
+
+            if not result:
+                send_message(user, message)
