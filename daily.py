@@ -1,10 +1,29 @@
-import gmail, time, smtplib, re
+import gmail, time, smtplib, re, requests
 from secrets import gmail_username, gmail_password, gmail_email
 from datetime import timedelta, datetime, date
 from email_remover import unquote
 import sys
 
 SEND_EMAIL_ALWAYS = False
+
+def get_tumblr_gifs():
+    # dont get excited. this is the apikey in the tumblr docs
+    url = 'http://api.tumblr.com/v2/tagged?tag=bushwick&api_key=fuiKNFp9vQFvjLNvx4sUwti4Yb5yGutBN4Xh10LXZhhRKjWlV4'
+
+    r = requests.get(url)
+    data = r.json()
+
+    urls = []
+
+    for post in data['response']:
+        if 'photos' not in post:
+            continue
+
+        for photo in post['photos']:
+            urls.append(photo['original_size']['url'])
+    return urls
+
+tumblr_gifs = get_tumblr_gifs()
 
 def get_users(g):
     emails = g.inbox().mail(prefetch=True)
