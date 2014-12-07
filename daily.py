@@ -7,27 +7,6 @@ import random
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-SEND_EMAIL_ALWAYS = False
-
-def get_tumblr_gifs():
-    # dont get excited. this is the apikey in the tumblr docs
-    url = 'http://api.tumblr.com/v2/tagged?tag=bushwick&api_key=fuiKNFp9vQFvjLNvx4sUwti4Yb5yGutBN4Xh10LXZhhRKjWlV4'
-
-    r = requests.get(url)
-    data = r.json()
-
-    urls = []
-
-    for post in data['response']:
-        if 'photos' not in post:
-            continue
-
-        for photo in post['photos']:
-            urls.append(photo['original_size']['url'])
-    return urls
-
-tumblr_gifs = get_tumblr_gifs()
-
 def get_users(g):
     emails = g.inbox().mail(prefetch=True)
 
@@ -46,7 +25,6 @@ def get_users(g):
 def get_mail_message(g, user):
     msg = pick_old_message(g, user)
     day = time.strftime("%A %b %d")
-    img = random.choice(tumblr_gifs)
     subj = 'It\'s ' + day + ' - How did your day go?'
 
     message = MIMEMultipart('alternative')
@@ -55,7 +33,6 @@ def get_mail_message(g, user):
     message['To'] = user
 
     part1 = MIMEText(msg, 'plain')
-    msg += '\n<img src="%s" style="width: 400px"/>' % (img)
     msg = msg.replace('\n', '<br>')
     part2 = MIMEText(msg, 'html')
 
@@ -126,9 +103,6 @@ def send_message(user, message):
     server.quit()
 
 if __name__ == '__main__':
-    print sys.argv
-    if len(sys.argv) > 1:
-        SEND_EMAIL_ALWAYS = (sys.argv[1] == 'demo')
 
     g = gmail.login(gmail_username, gmail_password)
     users = get_users(g)
@@ -138,14 +112,11 @@ if __name__ == '__main__':
 
         print message
 
-        if SEND_EMAIL_ALWAYS:
+        # check if message is sent today.
+        today_after  = date.today()
+        today_before = today_after + timedelta(days=1)
+
+        result = g.sent_mail().mail(to=parse_email(user), before=today_before, after=today_after, prefetch=True)
+
+        if not result:
             send_message(user, message)
-        else:
-            # check if message is sent today.
-            today_after  = date.today()
-            today_before = today_after + timedelta(days=1)
-
-            result = g.sent_mail().mail(to=parse_email(user), before=today_before, after=today_after, prefetch=True)
-
-            if not result:
-                send_message(user, message)
